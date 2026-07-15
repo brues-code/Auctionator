@@ -750,16 +750,21 @@ end
 
 -----------------------------------------
 
-function Atr_ClearBrowseListings()
-	
-	local start = time();
+local gAtr_clearListingsPending = false;
 
-	while (time() - start < 5) do
-	
-		if (CanSendAuctionQuery()) then
-			QueryAuctionItems("xyzzy", 43, 43, 0, 7, 0);
-			break;
-		end
+function Atr_ClearBrowseListings()
+
+	gAtr_clearListingsPending = true;
+
+end
+
+-----------------------------------------
+
+function Atr_ClearBrowseListings_Idle()
+
+	if (gAtr_clearListingsPending and CanSendAuctionQuery()) then
+		gAtr_clearListingsPending = false;
+		QueryAuctionItems("xyzzy", 43, 43, 0, 7, 0);
 	end
 
 end

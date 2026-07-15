@@ -2295,6 +2295,8 @@ function Atr_Idle(self, elapsed)
 		gCurrentPane.activeSearch:Continue();
 	end
 
+	Atr_ClearBrowseListings_Idle();		------- send a queued browse-list clear once the client will accept a query -------
+
 	Atr_UpdateUI ();
 
 	Atr_CheckingActiveIdle();
