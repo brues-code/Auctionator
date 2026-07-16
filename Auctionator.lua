@@ -2107,10 +2107,9 @@ function Atr_ShowRecTooltip ()
 	
 	if (link) then
 		if (num < 1) then num = 1; end;
-		
 		GameTooltip:SetOwner(Atr_RecommendItem_Tex, "ANCHOR_RIGHT");
-		local itemID = C_Item.GetItemInfoInstant(link)
-		GameTooltip:SetItemByID(itemID);
+		local itemString = string.match(link, "|H(.-)|h") or link;
+		GameTooltip:SetHyperlink(itemString);
 		gCurrentPane.tooltipvisible = true;
 	end
 
@@ -2879,14 +2878,11 @@ end
 
 -----------------------------------------
 
-function Atr_ShowLineTooltip (self)
-
-	local itemLink = self.itemLink;
-		
-	if (itemLink) then
-		local itemID = C_Item.GetItemInfoInstant(itemLink)
+function Atr_ShowLineTooltip (self)		
+	if (self.itemLink) then
+		local itemString = string.match(self.itemLink, "|H(.-)|h") or self.itemLink;
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT", -280);
-		GameTooltip:SetItemByID(itemID);
+		GameTooltip:SetHyperlink(itemString);
 	end
 end
 
