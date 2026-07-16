@@ -1426,7 +1426,7 @@ end
 function Atr_OnAuctionUpdate ()
 
 	if (gAtr_FullScanState == ATR_FS_STARTED) then
-		Atr_FullScanAnalyze();
+		Atr_FullScanOnUpdate();
 		return;
 	end
 

@@ -1067,18 +1067,47 @@ end
 
 local gNumAdded, gNumUpdated;
 
+-- Full-scan paging state. The 1.12 QueryAuctionItems has no getAll, so a full
+-- scan walks the whole house one 50-item page at a time, accumulating lowest
+-- prices across pages. This mirrors the main AtrSearch paging discipline
+-- (response-driven Continue + dup-page detection + idle timeout re-query) so the
+-- same refire / dropped-packet handling applies here too.
+local gFS_query;
+local gFS_current_page;
+local gFS_query_sent_when;
+local gFS_pstate;			-- "prequery" (send next page) | "postquery" (waiting on a page)
+local gFS_lowprices;
+local gFS_qualities;
+local gFS_numScanned;
+
+-----------------------------------------
+
+function Atr_FullScanContinue()
+
+	if (CanSendAuctionQuery()) then
+		-- empty name + wildcard filters = every auction, page by page
+		QueryAuctionItems ("", nil, nil, 0, 0, 0, gFS_current_page, 0);
+		gFS_query_sent_when	= gAtr_ptime;
+		gFS_pstate			= "postquery";
+		gFS_current_page	= gFS_current_page + 1;
+	end
+end
+
 -----------------------------------------
 
 function Atr_FullScanStart()
 
-	local canQuery,canQueryAll = CanSendAuctionQuery();
-	
-	if (canQueryAll) then
-	
+	-- Page-based full scan: gate on the ordinary query throttle (canQuery), not
+	-- canQueryAll -- the getAll capability is never available on 1.12, so gating
+	-- on it left the Start Scanning button permanently disabled.
+	local canQuery = CanSendAuctionQuery();
+
+	if (canQuery) then
+
 		Atr_FullScanStatus:SetText (ZT("Scanning").."...");
 		Atr_FullScanStartButton:Disable();
 		Atr_FullScanDone:Disable();
-	
+
 		gAtr_FullScanState = ATR_FS_STARTED;
 
 		SortAuctionClearSort ("list");
@@ -1086,10 +1115,14 @@ function Atr_FullScanStart()
 		gNumAdded = 0;
 		gNumUpdated = 0;
 
-		-- Vanilla 1.12 QueryAuctionItems is 8-arg; no qualityIndex (9th) and no
-		-- getAll boolean (10th). The "full scan" therefore pages normally through
-		-- the result list rather than dumping everything in one response.
-		QueryAuctionItems ("", nil, nil, 0, 0, 0, 0, 0);
+		gFS_lowprices		= {};
+		gFS_qualities		= {};
+		gFS_numScanned		= 0;
+		gFS_query			= Atr_NewQuery();
+		gFS_current_page	= 0;
+		gFS_pstate			= "prequery";
+
+		Atr_FullScanContinue();		-- send page 0; later pages are driven from idle
 	end
 
 end
@@ -1159,70 +1192,110 @@ end
 
 -----------------------------------------
 
-function Atr_FullScanAnalyze()
+-- Handle an AUCTION_ITEM_LIST_UPDATE while a full scan is running.
+-- The client re-fires this event once per uncached item as data resolves;
+-- ignore those refires (same page) and only act on a genuinely new page, the
+-- same way the main search does. Process the page, then either finalize (last
+-- page) or arm the idle loop to fetch the next page.
+function Atr_FullScanOnUpdate()
 
-	gAtr_FullScanState = ATR_FS_ANALYZING;
+	if (gFS_pstate ~= "postquery") then
+		return;
+	end
 
-	Atr_FullScanStatus:SetText (ZT("Processing"));
-	
+	if (gFS_query:CheckForDuplicatePage (gFS_current_page)) then
+		return;		-- refire of a page we already processed; wait for the real next page
+	end
+
+	if (Atr_FullScanProcessPage()) then
+		Atr_FullScanFinish();
+	else
+		gFS_pstate = "prequery";
+	end
+end
+
+-- Process one page of the full scan into the cross-page accumulators.
+-- Returns true when this was the last page (fewer than 50 rows, or we've hit
+-- the dup-page guard) so the caller can finalize.
+function Atr_FullScanProcessPage()
 
 	local numBatchAuctions, totalAuctions = GetNumAuctionItems("list");
 
-	zc.md ("FULL SCAN:"..numBatchAuctions.." out of  "..totalAuctions)
+	if (totalAuctions >= 50) then
+		local totalPages = ceil (totalAuctions / 50);
+		Atr_FullScanStatus:SetText (string.format (ZT("Scanning auctions: page %d of %d"), gFS_current_page, totalPages));
+	end
 
-	local lowprices = {};
 	local x;
-	
-	local qualities = {};
-	
-	if (numBatchAuctions > 0) then
 
-		for x = 1, numBatchAuctions do
+	for x = 1, numBatchAuctions do
 
-			local name, texture, count, quality, canUse, level, minBid, minIncrement, buyoutPrice = GetAuctionItemInfo("list", x);
+		local name, texture, count, quality, canUse, level, minBid, minIncrement, buyoutPrice = GetAuctionItemInfo("list", x);
 
-			qualities[name] = quality;
-			
-			if (name ~= nil and buyoutPrice ~= nil) then
-			
+		-- `name` can be nil when a row's item data hasn't resolved from the
+		-- client cache yet; skip those rows rather than keying tables on nil.
+		if (name ~= nil) then
+
+			gFS_qualities[name] = quality;
+
+			if (buyoutPrice ~= nil and count and count > 0) then
+
 				local itemPrice = math.floor (buyoutPrice / count);
-			
-				if (itemPrice > 0) then
-					if (not lowprices[name]) then
-						lowprices[name] = {BIGNUM,BIGNUM,BIGNUM};		-- one extra for later
-					end
-					
-					Atr_AddToLowPrices (lowprices[name], itemPrice);
-				end
-			end
 
-			if (math.mod(x, 100) == 0) then
-				Atr_FullScanStatus:SetText (ZT("Processing").." ("..x..")");
+				if (itemPrice > 0) then
+					if (not gFS_lowprices[name]) then
+						gFS_lowprices[name] = {BIGNUM,BIGNUM,BIGNUM};		-- one extra for later
+					end
+
+					Atr_AddToLowPrices (gFS_lowprices[name], itemPrice);
+				end
 			end
 		end
 	end
 
+	if (Atr_CheckForBargain and numBatchAuctions > 0) then
+		for x = 1, numBatchAuctions do
+			Atr_CheckForBargain (x);
+		end
+	end
+
+	gFS_numScanned = gFS_numScanned + numBatchAuctions;
+
+	-- A short page is the last page. The dup-page guard mirrors the main
+	-- search: if we somehow keep getting the same page, stop rather than loop.
+	return (numBatchAuctions < 50) or (gFS_query.numDupPages > 10);
+end
+
+-- Fold the accumulated per-page prices into the scan DB and show the summary.
+function Atr_FullScanFinish()
+
+	gAtr_FullScanState = ATR_FS_ANALYZING;
+
+	Atr_FullScanStatus:SetText (ZT("Processing"));
+
+	zc.md ("FULL SCAN: "..gFS_numScanned.." auctions scanned")
+
 	local numEachQual = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 	local totalItems = 0;
 	local numRemoved = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	
-	for name,prices in pairs (lowprices) do
-		
+
+	for name,prices in pairs (gFS_lowprices) do
+
 		local newprice = Atr_CalcNewDBprice (name, prices);
-		
+
 		if (newprice > 0) then
-		
-			local qx = qualities[name] + 1;
-			
+
+			local qx = gFS_qualities[name] + 1;
+
 			numEachQual[qx]	= numEachQual[qx] + 1;
 			totalItems		= totalItems + 1;
-			
+
 			if (qx < AUCTIONATOR_SCAN_MINLEVEL and gAtr_ScanDB[name]) then
 				numRemoved[qx] = numRemoved[qx] + 1;
 				gAtr_ScanDB[name] = nil;
 				zc.md ("removed: |cffbbbbbb", name, "   ("..qx..")");
 			end
-			
+
 			if (qx >= AUCTIONATOR_SCAN_MINLEVEL) then
 
 				if (gAtr_ScanDB[name] == nil) then
@@ -1236,23 +1309,17 @@ function Atr_FullScanAnalyze()
 		end
 	end
 
-	gScanDetails.numBatchAuctions		= numBatchAuctions;
+	gScanDetails.numBatchAuctions		= gFS_numScanned;
 	gScanDetails.totalItems				= totalItems;
 	gScanDetails.numEachQual			= numEachQual;
 	gScanDetails.numRemoved				= numRemoved;
 	gScanDetails.gNumAdded				= gNumAdded;
 	gScanDetails.gNumUpdated			= gNumUpdated;
 
-
-	if (Atr_PrintBargains and Atr_CheckForBargain and numBatchAuctions > 0) then
-
-		for x = 1, numBatchAuctions do
-			Atr_CheckForBargain (x);
-		end
-		
+	if (Atr_PrintBargains) then
 		Atr_PrintBargains();
 	end
-	
+
 	gAtr_FullScanState = ATR_FS_CLEANING_UP;
 
 	Atr_FullScanMoreDetails();
@@ -1262,24 +1329,25 @@ function Atr_FullScanAnalyze()
 	Atr_FullScanStartButton:Enable();
 	Atr_FullScanDone:Enable();
 	Atr_FullScanStatus:SetText ("");
-	
-	Atr_FSR_scanned_count:SetText	(numBatchAuctions);
+
+	Atr_FSR_scanned_count:SetText	(gFS_numScanned);
 	Atr_FSR_added_count:SetText		(gNumAdded);
 	Atr_FSR_updated_count:SetText	(gNumUpdated);
 	Atr_FSR_ignored_count:SetText	(totalItems - (gNumAdded + gNumUpdated));
-	
+
 	Atr_FullScanHTML:Hide();
 	Atr_FullScanResults:Show();
-	
+
 	Atr_FullScanResults:SetBackdropColor (0.3, 0.3, 0.4);
-	
+
 	AUCTIONATOR_LAST_SCAN_TIME = time();
-	
+
 	Atr_UpdateFullScanFrame ();
 
 	Atr_ClearBrowseListings();
-	
-	lowprices = {};
+
+	gFS_lowprices = {};
+	gFS_qualities = {};
 	collectgarbage ("collect");
 end
 
@@ -1331,32 +1399,18 @@ function Atr_UpdateFullScanFrame()
 		Atr_FullScanDBwhen:SetText (ZT("Never"));
 	end
 
-	local canQuery,canQueryAll = CanSendAuctionQuery();
+	-- Page-based full scan gates on the ordinary query throttle. There is no
+	-- 15-minute getAll cooldown on 1.12, so the button is available whenever the
+	-- client will accept a query; it's only briefly disabled while one is in flight.
+	local canQuery = CanSendAuctionQuery();
 
-	if (canQueryAll) then
+	Atr_FullScanNext:SetText (ZT("Now"));
+
+	if (canQuery) then
 		Atr_FullScanStatus:SetText ("");
 		Atr_FullScanStartButton:Enable();
-		Atr_FullScanNext:SetText(ZT("Now"));
-	else	
+	else
 		Atr_FullScanStartButton:Disable();
-
-		if (AUCTIONATOR_LAST_SCAN_TIME) then
-			local when = 15*60 - (time() - AUCTIONATOR_LAST_SCAN_TIME);
-		
-			when = math.floor (when/60);
-		
-			if (when == 0) then
-				Atr_FullScanNext:SetText (ZT("in less than a minute"));
-			elseif (when == 1) then
-				Atr_FullScanNext:SetText (ZT("in about one minute"));
-			elseif (when > 0) then
-				Atr_FullScanNext:SetText (string.format (ZT("in about %d minutes"), when));
-			else
-				Atr_FullScanNext:SetText (ZT("unknown"));
-			end
-		else
-			Atr_FullScanNext:SetText (ZT("unknown"));
-		end
 	end
 end
 
@@ -1380,8 +1434,19 @@ function Atr_FullScanFrameIdle()
 	
 	if (gAtr_FullScanState == ATR_FS_STARTED) then
 
+		------- drive paging: send the next page when the client will accept a query -------
+		if (gFS_pstate == "prequery") then
+			Atr_FullScanContinue();
+		elseif (gFS_pstate == "postquery" and gFS_query_sent_when
+				and (gAtr_ptime - gFS_query_sent_when) > 5) then
+			-- Page result never arrived (dropped packet); re-query the page we're
+			-- waiting on rather than hanging. Mirrors the main-search safety net.
+			gFS_current_page	= gFS_current_page - 1;
+			gFS_pstate			= "prequery";
+		end
+
 		local btext = Atr_FullScanStatus:GetText ();
-		
+
 		if (btext) then
 			if (string.len (btext) > 25) then
 				Atr_FullScanStatus:SetText (ZT("Scanning")..".");
@@ -1390,7 +1455,7 @@ function Atr_FullScanFrameIdle()
 			end
 		end
 	end
-	
+
 end
 
 

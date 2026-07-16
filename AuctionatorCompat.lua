@@ -397,9 +397,11 @@ end
 --  * GetItemIcon — ClassicAPI ships this natively in 1.12.
 --  * OpenAllBags(frame) — Auctionator.lua:918 was changed to OpenAllBags()
 --    (vanilla takes no arg; passing a truthy value is unsafe).
---  * CanSendAuctionQuery — vanilla returns one boolean; the destructure
---    sites in AuctionatorScan.lua just receive nil for the 2nd value, which
---    correctly leaves the full-scan UI disabled in 1.12.
+--  * CanSendAuctionQuery — vanilla returns one boolean (no getAll/canQueryAll
+--    2nd value). The full scan is page-based, so its call sites in
+--    AuctionatorScan.lua gate on this single boolean; do NOT gate the full-scan
+--    UI on a 2nd (canQueryAll) value -- it is always nil here and would leave
+--    the Start Scanning button permanently disabled.
 --  * MoneyFrame_SetType — vanilla is 1-arg (uses `this`); Auctionator.lua:3265
 --    was changed accordingly.
 --  * XML scripts in 1.12 expose `this` and `arg1..argN` as globals; `self`
