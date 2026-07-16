@@ -1079,6 +1079,7 @@ local gFS_pstate;			-- "prequery" (send next page) | "postquery" (waiting on a p
 local gFS_lowprices;
 local gFS_qualities;
 local gFS_numScanned;
+local gFS_startTime;
 
 -----------------------------------------
 
@@ -1118,6 +1119,7 @@ function Atr_FullScanStart()
 		gFS_lowprices		= {};
 		gFS_qualities		= {};
 		gFS_numScanned		= 0;
+		gFS_startTime		= GetTime();
 		gFS_query			= Atr_NewQuery();
 		gFS_current_page	= 0;
 		gFS_pstate			= "prequery";
@@ -1168,6 +1170,18 @@ local gScanDetails = {}
 
 -----------------------------------------
 
+-- Human-friendly scan duration: "12.3 sec" under a minute, "1m 05s" beyond.
+function Atr_FormatScanDuration (secs)
+
+	if (secs >= 60) then
+		return string.format ("%dm %02ds", math.floor (secs / 60), math.floor (math.mod (secs, 60)));
+	end
+
+	return string.format ("%.1f ", secs)..ZT("sec");
+end
+
+-----------------------------------------
+
 function Atr_FullScanMoreDetails ()
 
 	zc.msg (" ");
@@ -1187,6 +1201,11 @@ function Atr_FullScanMoreDetails ()
 	zc.msg_atr (ZT("Items added to database")..": |cffffffff", gScanDetails.gNumAdded);
 	zc.msg_atr (ZT("Items updated in database")..": |cffffffff", gScanDetails.gNumUpdated);
 	zc.msg_atr (ZT("Items ignored")..": |cffffffff", gScanDetails.totalItems - (gScanDetails.gNumAdded + gScanDetails.gNumUpdated));
+
+	if (gScanDetails.elapsed) then
+		zc.msg_atr (ZT("Scan completed in")..": |cffffffff", Atr_FormatScanDuration (gScanDetails.elapsed));
+	end
+
 	zc.msg (" ");
 end
 
@@ -1315,6 +1334,7 @@ function Atr_FullScanFinish()
 	gScanDetails.numRemoved				= numRemoved;
 	gScanDetails.gNumAdded				= gNumAdded;
 	gScanDetails.gNumUpdated			= gNumUpdated;
+	gScanDetails.elapsed				= gFS_startTime and (GetTime() - gFS_startTime) or nil;
 
 	if (Atr_PrintBargains) then
 		Atr_PrintBargains();
@@ -1423,10 +1443,14 @@ function Atr_FullScanFrameIdle()
 		Atr_FullScanStatus:SetText ("Cleaning up");
 		
 		if (GetNumAuctionItems("list") < 100) then
-		
-			Atr_FullScanStatus:SetText (ZT("Scan complete"));
+
+			local doneText = ZT("Scan complete");
+			if (gScanDetails.elapsed) then
+				doneText = doneText.." ("..Atr_FormatScanDuration (gScanDetails.elapsed)..")";
+			end
+			Atr_FullScanStatus:SetText (doneText);
 			PlaySound("AuctionWindowClose");
-			
+
 			gAtr_FullScanState = ATR_FS_NULL;
 		end
 	
