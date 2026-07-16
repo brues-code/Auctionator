@@ -406,25 +406,22 @@ function Atr_GetNextDustIntoCache()		-- make sure all the dusts and essences are
 		return;
 	end
 
-	local itemID		= dustsAndEssences[gAtr_dustCacheIndex];
-	local itemString	= "item:"..itemID..":0:0:0:0:0:0:0";
-	
-	local itemName, itemLink = GetItemInfo(itemString);
-	
-	if (itemLink == nil and dustCacheState == 0) then
-		dustCacheState = 1;
-		zc.md ("pulling "..itemString.." into the local cache");
-		AtrScanningTooltip:SetHyperlink(itemString);
-	end
+	local itemID = dustsAndEssences[gAtr_dustCacheIndex];
 
-	if (itemLink) then
-		--zc.md (itemName.." is already in local cache");
+	if (C_Item.IsItemDataCachedByID (itemID)) then
+		-- cached: advance to the next dust/essence
 		dustCacheState = 0;
 		gAtr_dustCacheIndex = gAtr_dustCacheIndex + 1;
-		
+
 		if (gAtr_dustCacheIndex > table.getn(dustsAndEssences)) then
 			gAtr_dustCacheIndex = 0;		-- finished
 		end
+	elseif (dustCacheState == 0) then
+		-- not cached: ask the client to load it, then wait (state 1) until the
+		-- next call sees it cached. Beats the old SetHyperlink-on-a-tooltip hack.
+		dustCacheState = 1;
+		zc.md ("pulling item "..itemID.." into the local cache");
+		C_Item.RequestLoadItemDataByID (itemID);
 	end
 end
 
