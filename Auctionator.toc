@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: Auctionator
-## Version: 4.20.69-vanilla
-## Author: Zirco
+## Version: @project-version@
+## Author: Zirco (Backported by Brues)
 ## X-Website: http://auctionator-addon.com
 ## X-Localizations: enUS, deDE, ruRU, svSE, frFR, esES
 ## Notes: A lightweight addon that makes it easy and fast to buy, sell and manage auctions

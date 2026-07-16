@@ -2,6 +2,19 @@
 AuctionatorVersion = "???";		-- set from toc upon loading
 AuctionatorAuthor  = "Zirco";
 
+-- Single source of truth for our addon-message channel prefix. Deliberately
+-- forked from upstream's "ATR" so this build only exchanges version messages
+-- with other copies of this fork, not with stock Auctionator. Change here only.
+ATR_MSG_PREFIX = "AtrCAPI";
+
+-- Running from source: the packager hasn't substituted the version token, so
+-- GetAddOnMetadata returns the literal "@project-version@". Treat that as dev
+-- mode and skip the addon-message version check -- there's no real version to
+-- compare, and broadcasting the raw token to others is just noise.
+function Atr_IsDevVersion ()
+	return (AuctionatorVersion == "@project-version@");
+end
+
 local AuctionatorLoaded = false;
 local AuctionatorInited = false;
 
@@ -267,23 +280,52 @@ local versionReminderCalled	= false;	-- make sure we don't bug user more than on
 
 -----------------------------------------
 
+-- Compare dotted version strings numerically, segment by segment. Tolerates a
+-- leading "v" and differing segment counts (missing segments count as 0).
+-- Returns true if 'newVer' is strictly newer than 'haveVer'. A plain string
+-- compare is wrong here: lexically "1.0.10" < "1.0.9", and any non-numeric
+-- character (e.g. a "v" prefix) silently defeats the comparison.
+local function Atr_VersionNewer (newVer, haveVer)
+
+	local function segments (s)
+		local t = {};
+		for n in string.gfind (s or "", "%d+") do
+			tinsert (t, tonumber(n));
+		end
+		return t;
+	end
+
+	local a = segments (newVer);
+	local b = segments (haveVer);
+
+	for i = 1, math.max (table.getn(a), table.getn(b)) do
+		local x = a[i] or 0;
+		local y = b[i] or 0;
+		if (x ~= y) then
+			return x > y;
+		end
+	end
+
+	return false;	-- equal
+end
+
+-----------------------------------------
+
 local function CheckVersion (verString)
-	
+
 	if (checkVerString == nil) then
 		checkVerString = AuctionatorVersion;
 	end
-	
-	local a,b,c = strsplit (".", verString);
 
-	if (tonumber(a) == nil or tonumber(b) == nil or tonumber(c) == nil) then
-		return false;
+	if (not string.find (verString, "%d")) then
+		return false;					-- not a version string we can read
 	end
-	
-	if (verString > checkVerString) then
+
+	if (Atr_VersionNewer (verString, checkVerString)) then
 		checkVerString = verString;
 		return true;	-- out of date
 	end
-	
+
 	return false;
 end
 
@@ -307,10 +349,14 @@ local VREQ_sent = 0;
 
 function Atr_SendAddon_VREQ (type, target)
 
+	if (Atr_IsDevVersion()) then
+		return;		-- no real version to advertise or compare in dev mode
+	end
+
 	VREQ_sent = time();
-	
-	SendAddonMessage ("ATR", "VREQ_"..AuctionatorVersion, type, target);
-	
+
+	SendAddonMessage (ATR_MSG_PREFIX, "VREQ_"..AuctionatorVersion, type, target);
+
 end
 
 -----------------------------------------
@@ -325,10 +371,10 @@ function Atr_OnChatMsgAddon ()
 --	local s = string.format ("%s %s |cff88ffff %s |cffffffaa %s|r", prefix, distribution, sender, msg);
 --	zc.md (s);
 
-	if (arg1 == "ATR") then
-	
+	if (arg1 == ATR_MSG_PREFIX and not Atr_IsDevVersion()) then
+
 		if (zc.StringStartsWith (msg, "VREQ_")) then
-			SendAddonMessage ("ATR", "V_"..AuctionatorVersion, "WHISPER", sender);
+			SendAddonMessage (ATR_MSG_PREFIX, "V_"..AuctionatorVersion, "WHISPER", sender);
 		end
 		
 		if (zc.StringStartsWith (msg, "V_") and time() - VREQ_sent < 5) then
