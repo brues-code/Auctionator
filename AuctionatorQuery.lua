@@ -85,10 +85,14 @@ function AtrQuery:CheckForDuplicatePage (pagenum)
 	
 	
 	if (dupPageFound) then
-	
+
 		self.numDupPages = self.numDupPages + 1;
 --		zc.msg_atr ("DUPLICATE PAGE FOUND: thisPage.numOnPage: ", thisPage.numOnPage, "  numDupItems: ", numDupItems);
 	else
+		-- Reset on a genuinely new page: item-resolution refires produce a burst
+		-- of duplicates between real pages, and those must not accumulate toward
+		-- the numDupPages > 10 abort (which would end the scan with no results).
+		self.numDupPages = 0;
 		self.prevPage = thisPage;
 	end
 

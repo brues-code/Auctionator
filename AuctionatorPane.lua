@@ -33,6 +33,16 @@ end
 
 function AtrPane:DoSearch (searchText, exact, rescanThreshold, callback, opts)
 
+	-- A compound/category search ("Container/Bag", "Armor>Cloth", "3>30", ...)
+	-- returns many different items, so it must be treated as non-exact -- even
+	-- when the caller (Shop tab / shopping-list click / advanced search) passes
+	-- exact=true. Forcing it here keeps DoSearch's activeScan handling and the
+	-- AtrSearch storage filter consistent; otherwise exact-name filtering drops
+	-- every row and the results come back empty.
+	if (searchText and Atr_IsCompoundSearch (searchText)) then
+		exact = false;
+	end
+
 	self.currIndex			= nil;
 	self.histIndex			= nil;
 	self.hintsIndex			= nil;

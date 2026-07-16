@@ -317,13 +317,14 @@ function Atr_SEntryOnClick ()
 		Atr_GetCurrentPane():ClearSearch();
 		Atr_RemFromSListOnClick();
 	else
-		-- Shopping-list clicks want "what's the cheapest right now" for a
-		-- named item — opt into exact match (so the per-unit short-circuit
-		-- can use a single known stack cap) plus shoppingMode (the
-		-- short-circuit itself). On Turtle, where the AH returns results in
-		-- ascending total-buyout order, this typically terminates after 1–4
-		-- pages instead of walking the whole house.
-		Atr_Search_Onclick ({ shoppingMode = true, exact = true });
+		-- Search non-exact so partial entries ("mithril cas") and recent search
+		-- strings match by substring, same as the server's own name filter --
+		-- otherwise the exactMatch filter in AnalyzeResultsPage drops every row
+		-- whose name isn't identical to the text and the results come back empty.
+		-- We keep shoppingMode (its own behaviours) but drop exact: the exact
+		-- per-unit short-circuit it used to enable is unnecessary now that the
+		-- response-driven throttle makes a full scan fast.
+		Atr_Search_Onclick ({ shoppingMode = true });
 	end
 
 	Atr_Shop_UpdateUI();

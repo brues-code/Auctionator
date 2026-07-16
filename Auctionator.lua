@@ -2295,6 +2295,17 @@ function Atr_Idle(self, elapsed)
 		gCurrentPane.activeSearch:Continue();
 	end
 
+	-- Safety net: we now ignore duplicate/refire AUCTION_ITEM_LIST_UPDATE events
+	-- and wait in KM_POSTQUERY for the real next page (see AtrSearch:CheckForDuplicatePage).
+	-- If a page's result never arrives (e.g. a dropped packet), re-query it rather
+	-- than hanging. query_sent_when is in gAtr_ptime units (seconds).
+	local srch = gCurrentPane.activeSearch;
+	if (srch and srch.processing_state == KM_POSTQUERY and srch.query_sent_when
+			and (gAtr_ptime - srch.query_sent_when) > 5) then
+		srch.current_page		= srch.current_page - 1;   -- re-query the page we're waiting on
+		srch.processing_state	= KM_PREQUERY;
+	end
+
 	Atr_ClearBrowseListings_Idle();		------- send a queued browse-list clear once the client will accept a query -------
 
 	Atr_UpdateUI ();

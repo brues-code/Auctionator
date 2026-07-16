@@ -280,11 +280,17 @@ function AtrSearch:CheckForDuplicatePage ()
 	if (isDup) then
 --		zc.msg_red ("DUPLICATE PAGE FOUND: ", "  current_page: ", self.current_page, "  numDupPages: ", self.query.numDupPages);
 
-		self.current_page	= self.current_page - 1;   -- requery the page
-		
-		self.processing_state = KM_PREQUERY;
+		-- A "duplicate" here almost always means we got an AUCTION_ITEM_LIST_UPDATE
+		-- that still carries the page we already processed -- the client re-fires
+		-- that event once per uncached item as its data resolves. The old code
+		-- re-queried the page on every such refire; with a fast (response-driven)
+		-- throttle that becomes a re-query storm that trips the numDupPages > 10
+		-- abort in AnalyzeResultsPage and returns no results. Instead, stay in
+		-- KM_POSTQUERY and ignore the refire: the event that carries the genuinely
+		-- new page won't be a dup and will advance the scan. A KM_POSTQUERY
+		-- timeout in Atr_Idle re-queries if a page never arrives, so this can't hang.
 	end
-		
+
 	return isDup;
 end
 
@@ -331,7 +337,15 @@ function AtrSearch:AnalyzeResultsPage()
 
 			local exactMatch = zc.StringSame (name, self.searchText);
 
-			if (exactMatch or not self.exact) then
+			-- `name` can be nil here: on a fast (response-driven) scan the page is
+			-- processed before every row's item data has resolved from the client
+			-- cache. For an exact search those rows just fail exactMatch and are
+			-- skipped, but a category/non-exact search takes the `not self.exact`
+			-- branch for every row -- and `self.items[nil] = ...` is a "table index
+			-- is nil" error that aborts the whole page, so nothing gets stored and
+			-- the results pane stays empty. Guard on `name` so unresolved rows are
+			-- skipped instead of crashing.
+			if (name and (exactMatch or not self.exact)) then
 
 				if (self.items[name] == nil) then
 					self.items[name] = Atr_FindScanAndInit (name);
