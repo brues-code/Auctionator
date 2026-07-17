@@ -339,7 +339,14 @@ function Atr_OptionsBuild()
 	-- parented to UIParent), so hiding the window won't hide them. Hide the
 	-- active panel explicitly when the window closes.
 	f:SetScript("OnHide", function()
-		if Atr_OptWindow and Atr_OptWindow.activePanel then
+		if not Atr_OptWindow then return end
+
+		for i = 1, table.getn(Atr_OptCategories) do
+			local p = Atr_OptCategories[i]
+			if p and p.okay then p.okay() end
+		end
+
+		if Atr_OptWindow.activePanel then
 			Atr_OptWindow.activePanel:Hide()
 			-- Clear so reopening to the same panel doesn't hit the
 			-- "already active" early-return in Atr_OptionsSelect and skip Show().
