@@ -1260,7 +1260,7 @@ function Atr_LogMsg (itemlink, itemcount, price, numstacks)
 		logmsg = logmsg.."|cff00ddddx"..itemcount.."|r";
 	end
 
-	logmsg = logmsg.."   "..GetCoinTextureString(price);
+	logmsg = logmsg.."   "..zc.priceToMoneyString(price);
 
 	if (numstacks > 1 and itemcount > 1) then
 		logmsg = logmsg.."  per stack";
