@@ -133,6 +133,13 @@ function Atr_SList:DisplayX ()
 	local line;							-- 1 through NN of our window to scroll
 	local dataOffset;					-- an index into our data calculated from the scroll offset
 
+	-- Reset every shared AuctionatorHEntry frame first (hide + clear text +
+	-- clear the selection overlay). These frames are also used by the 20-row
+	-- item-history list; this 15-row loop only manages the first 15, so without
+	-- a full reset stale rows/highlights from the history view (frames 16-20, or
+	-- a prior selection) linger under the recents list.
+	Atr_ClearHlist();
+
 	FauxScrollFrame_Update (Atr_Hlist_ScrollFrame, numrows, SLITEMS_NUM_LINES, 16);
 
 	for line = 1,SLITEMS_NUM_LINES do
@@ -156,6 +163,7 @@ function Atr_SList:DisplayX ()
 
 			local isSelected = (currentPane.activeSearch.origSearchText ~= "" and zc.StringSame(slItem, currentPane.activeSearch.origSearchText))
 				or (currentPane.activeSearch.searchText == "" and zc.StringSame(slItem, Atr_Search_Box:GetText()));
+
 			Atr_SelectionHighlight(lineEntry, isSelected);
 
 			lineEntry:Show();

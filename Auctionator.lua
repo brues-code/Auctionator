@@ -2761,7 +2761,14 @@ function Atr_ClearHlist ()
 	for line = 1,ITEM_HIST_NUM_LINES do
 		local lineEntry = getglobal ("AuctionatorHEntry"..line);
 		lineEntry:Hide();
-		
+
+		-- Clear the custom selection overlay too. These frames are shared by the
+		-- recents list, the shopping list, and the item-history list, each with
+		-- its own highlight logic; without resetting the overlay here the
+		-- selection highlight survives list rebuilds and tab switches, leaving
+		-- multiple rows stuck highlighted.
+		Atr_SelectionHighlight (lineEntry, false);
+
 		local lineEntry_text = getglobal("AuctionatorHEntry"..line.."_EntryText");
 		lineEntry_text:SetText		("");
 		lineEntry_text:SetTextColor	(.7,.7,.7);

@@ -95,25 +95,33 @@ end
 -- so the mouseover effect continues to work.
 function Atr_SelectionHighlight(btn, isSelected)
 	if (not btn) then return end
+
+	-- On this 1.12 client a clicked row's PushedTexture stays visibly stuck
+	-- after the click -- the button state returns to NORMAL but the texture is
+	-- never hidden -- so every row you click keeps a gold press overlay and they
+	-- pile up. That texture is not our selection visual (we draw our own overlay
+	-- below), so force it (and any locked highlight) off on every redraw.
+	local pushed = btn.GetPushedTexture and btn:GetPushedTexture()
+	if (pushed) then pushed:Hide() end
+	if (btn.UnlockHighlight) then btn:UnlockHighlight() end
+
 	if (not btn.atr_selTex) then
 		local tex = btn:CreateTexture(nil, "OVERLAY")
-		tex:SetTexture("Interface\\HelpFrame\\HelpFrameButton-Highlight")
-		tex:SetTexCoord(0.035, 0.04, 0.2, 0.25)
 		tex:SetBlendMode("ADD")
 		tex:SetAllPoints(btn)
-		tex:Hide()
 		btn.atr_selTex = tex
 	end
 	if (isSelected) then
+		btn.atr_selTex:SetTexture("Interface\\HelpFrame\\HelpFrameButton-Highlight")
+		btn.atr_selTex:SetTexCoord(0.035, 0.04, 0.2, 0.25)
 		btn.atr_selTex:Show()
-		btn.atr_selTex:SetAlpha(1)
 	else
+		-- On this 1.12 client, Hide()/SetAlpha(0) do NOT reliably clear an
+		-- ADD-blend overlay -- deselected rows stayed visibly highlighted and
+		-- accumulated. Clearing the texture image itself guarantees nothing is
+		-- drawn regardless of the region's shown/alpha state.
+		btn.atr_selTex:SetTexture(nil)
 		btn.atr_selTex:Hide()
-		btn.atr_selTex:SetAlpha(0)
-	end
-	-- Temporary debug
-	if (DEFAULT_CHAT_FRAME and Atr_DebugHL) then
-		DEFAULT_CHAT_FRAME:AddMessage("SelHL " .. (btn:GetName() or "?") .. " id=" .. tostring(btn:GetID()) .. " sel=" .. tostring(isSelected))
 	end
 end
 
