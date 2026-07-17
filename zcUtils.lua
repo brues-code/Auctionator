@@ -420,7 +420,7 @@ function zc.ItemIDfromLink (itemLink)
 	end
 	
 	local found, _, itemString = string.find(itemLink, "^|c%x+|H(.+)|h%[.*%]")
-	local _, itemId, _, _, _, _, _, suffixId, uniqueId = strsplit(":", itemString)
+	local _, itemId, _, suffixId, uniqueId = strsplit(":", itemString)
 
 	return itemId, suffixId, uniqueId;
 

@@ -233,6 +233,9 @@ function Atr_SetupHookFunctions ()
 	
 --	auctionator_orig_AuctionFrameBrowse_Update = AuctionFrameBrowse_Update;
 --	AuctionFrameBrowse_Update = auctionator_AuctionFrameBrowse_Update;
+	if (AuctionFrameBrowse and AuctionFrameBrowse.page == nil) then
+		AuctionFrameBrowse.page = 0;
+	end
 end
 
 -----------------------------------------
@@ -3900,9 +3903,11 @@ function Atr_AddHistoricalPrice (itemName, price, stacksize, itemLink, testwhen)
 
 	local is = itemId;
 
-	if (suffixId ~= 0) then
+	local suffixNum = tonumber(suffixId);
+
+	if (suffixNum and suffixNum ~= 0) then
 		is = is..":"..suffixId;
-		if (tonumber(suffixId) < 0) then
+		if (suffixNum < 0) then
 			is = is..":"..uniqueId;
 		end
 	end
