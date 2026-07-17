@@ -243,6 +243,17 @@ local Atr_OptCategories = {}   -- list of registered panels in registration orde
 local Atr_OptWindow            -- standalone window, built lazily
 local Atr_OptionsBuild, Atr_OptionsSelect, Atr_OptionsAddTab   -- forward decls
 
+-- Setting strata does NOT propagate to a frame's existing children in 1.12, so
+-- lift the whole subtree explicitly. We raise panels above the window backdrop
+-- this way rather than relying on parent inheritance.
+local function Atr_LiftStrata(frame, strata)
+	frame:SetFrameStrata(strata)
+	local kids = { frame:GetChildren() }
+	for i = 1, table.getn(kids) do
+		Atr_LiftStrata(kids[i], strata)
+	end
+end
+
 function Atr_OptionsSelect(panel)
 	if not panel or not Atr_OptWindow then return end
 	if Atr_OptWindow.activePanel == panel then return end
@@ -251,20 +262,18 @@ function Atr_OptionsSelect(panel)
 		Atr_OptWindow.activePanel:Hide()
 	end
 
-	-- Reparent so the panel and its children share our window's frame strata
-	-- via inheritance (explicit SetFrameStrata on the panel does NOT propagate
-	-- to existing children in 1.12 — they stay at their creation strata).
-	--
-	-- Hide before reparenting and re-anchor + Show afterwards to force WoW
-	-- to rebuild the hit-test tree at the new screen position. Without the
-	-- Hide/Show cycle, 1.12 leaves the children's mouse hit regions at
-	-- their original UIParent-relative coordinates and the checkboxes
-	-- become un-clickable (visible but inert).
-	panel:Hide()
-	panel:SetParent(Atr_OptWindow.content)
+	-- Do NOT reparent (SetParent) the panel into our window. In 1.12 reparenting
+	-- a frame that was created under UIParent leaves its mouse hit regions and
+	-- its children's strata in a broken state: checkboxes become visible-but-
+	-- unclickable and dropdowns fail to draw. Instead leave the panel parented
+	-- to UIParent, position it over the window's content area with cross-parent
+	-- SetPoint (which correctly moves both the visual and the hit-rect), and
+	-- raise the whole subtree above the window backdrop so it shows and takes
+	-- clicks. Dropdown menus open above their host (DIALOG), so keep panels there.
 	panel:ClearAllPoints()
 	panel:SetPoint("TOPLEFT", Atr_OptWindow.content, "TOPLEFT", 0, 0)
 	panel:SetPoint("BOTTOMRIGHT", Atr_OptWindow.content, "BOTTOMRIGHT", 0, 0)
+	Atr_LiftStrata(panel, "DIALOG")
 	panel:Show()
 
 	Atr_OptWindow.activePanel = panel
@@ -317,6 +326,18 @@ function Atr_OptionsBuild()
 	f.content = CreateFrame("Frame", nil, f)
 	f.content:SetPoint("TOPLEFT", f, "TOPLEFT", 180, -42)
 	f.content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -16, 16)
+
+	-- Panels are NOT children of this window (see Atr_OptionsSelect — they stay
+	-- parented to UIParent), so hiding the window won't hide them. Hide the
+	-- active panel explicitly when the window closes.
+	f:SetScript("OnHide", function()
+		if Atr_OptWindow and Atr_OptWindow.activePanel then
+			Atr_OptWindow.activePanel:Hide()
+			-- Clear so reopening to the same panel doesn't hit the
+			-- "already active" early-return in Atr_OptionsSelect and skip Show().
+			Atr_OptWindow.activePanel = nil
+		end
+	end)
 
 	f.tabs = {}
 	f.activePanel = nil

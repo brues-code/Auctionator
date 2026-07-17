@@ -36,18 +36,34 @@ end
 
 -----------------------------------------
 
+-- Run one panel's setup in isolation. Previously these were called in a plain
+-- sequence, so a single error (silent when the client's scriptErrors CVar is
+-- off) aborted every setup that followed -- which is why the later tabs
+-- (Selling, Scanning) rendered nothing. pcall each one so panels initialize
+-- independently, and surface the failure so the real cause is visible.
+local function Atr_SafeSetup (name, fn)
+
+	local ok, err = pcall (fn);
+
+	if (not ok) then
+		zc.msg_red ("Auctionator: options panel '"..name.."' failed to initialize: "..tostring(err));
+	end
+end
+
+-----------------------------------------
+
 function Atr_InitOptionsPanels()
 
 	if (AUCTIONATOR_SAVEDVARS == nil) then
 		Atr_ResetSavedVars();
 	end
 
-	Atr_SetupBasicOptionsFrame();
-	Atr_SetupTooltipsOptionsFrame();
-	Atr_SetupUCConfigFrame();
-	Atr_SetupStackingFrame();
-	Atr_SetupOptionsFrame();
-	Atr_SetupScanningConfigFrame();
+	Atr_SafeSetup ("Basic",		Atr_SetupBasicOptionsFrame);
+	Atr_SafeSetup ("Tooltips",	Atr_SetupTooltipsOptionsFrame);
+	Atr_SafeSetup ("Undercutting",	Atr_SetupUCConfigFrame);
+	Atr_SafeSetup ("Selling",	Atr_SetupStackingFrame);
+	Atr_SafeSetup ("About",		Atr_SetupOptionsFrame);
+	Atr_SafeSetup ("Scanning",	Atr_SetupScanningConfigFrame);
 
 end
 
