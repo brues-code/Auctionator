@@ -3744,6 +3744,8 @@ end
 
 function Atr_Duration_OnClick(self)
 
+	self = self or this;
+
 	UIDropDownMenu_SetSelectedValue(Atr_Duration, self.value);
 	Atr_SetDepositText();
 end
@@ -3780,7 +3782,9 @@ end
 -----------------------------------------
 
 function Atr_DropDown1_OnClick(self)
-	
+
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
+
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 	
 	local mode = self.value;

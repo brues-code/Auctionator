@@ -207,6 +207,7 @@ end
 -----------------------------------------
 
 function AuctionatorOption_Deftab_OnClick(self)
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 end
 
@@ -224,6 +225,7 @@ end
 -----------------------------------------
 
 function Atr_tipsShiftDD_OnClick(self)
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 end
 
@@ -244,6 +246,7 @@ end
 -----------------------------------------
 
 function Atr_deDetailsDD_OnClick(self)
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 end
 
@@ -618,6 +621,8 @@ end
 
 function Atr_SONumStacks_OnClick(self)
 
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
+
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 	Atr_Mem_stacksOf_text:SetText (ZT ((self.value == 1) and "stack of" or "stacks of"));
 end
@@ -705,6 +710,7 @@ end
 -----------------------------------------
 
 function Atr_scanLevelDD_OnClick(self)
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
 	UIDropDownMenu_SetSelectedValue(self.owner, self.value);
 end
 

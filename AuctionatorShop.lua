@@ -301,7 +301,9 @@ end
 -----------------------------------------
 
 function Atr_DropDownSL_OnClick(self)
-	
+
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
+
 	UIDropDownMenu_SetSelectedValue (self.owner, self.value);
 	
 	gCurrentSList = AUCTIONATOR_SHOPPING_LISTS[self.value];
