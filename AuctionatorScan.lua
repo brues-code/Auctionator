@@ -772,7 +772,28 @@ end
 
 function Atr_ClearBrowseListings_Idle()
 
-	if (gAtr_clearListingsPending and CanSendAuctionQuery()) then
+	if (not gAtr_clearListingsPending) then
+		return;
+	end
+
+	-- Never fire the clear query while a scan is in flight. It queries the AH
+	-- for a bogus item ("xyzzy") which comes back as an empty (0-item) page --
+	-- and that empty response would be mistaken for the scan's next page,
+	-- tripping the "< 50 rows = last page" check and ending the scan early.
+	-- Leave the request pending; it flushes on a later idle once nothing is
+	-- querying (a full scan finishes by calling Atr_ClearBrowseListings again).
+	if (gAtr_FullScanState ~= ATR_FS_NULL) then
+		return;
+	end
+
+	local srch = gCurrentPane and gCurrentPane.activeSearch;
+	if (srch and (srch.processing_state == KM_PREQUERY
+			or srch.processing_state == KM_INQUERY
+			or srch.processing_state == KM_POSTQUERY)) then
+		return;
+	end
+
+	if (CanSendAuctionQuery()) then
 		gAtr_clearListingsPending = false;
 		QueryAuctionItems("xyzzy", 43, 43, 0, 7, 0);
 	end
