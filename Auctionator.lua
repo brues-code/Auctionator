@@ -2111,7 +2111,8 @@ function Atr_SetTextureButton (elementName, count, itemlink)
 	if (type(itemlink) == "number") then
 		itemID = itemlink;
 	elseif (type(itemlink) == "string") then
-		itemID = tonumber (zc.ItemIDfromLink (itemlink));
+		local id = zc.ItemIDfromLink (itemlink);
+		itemID = tonumber (id);
 	end
 	local texture = itemID and GetItemIcon (itemID);
 
