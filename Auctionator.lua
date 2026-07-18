@@ -127,6 +127,7 @@ local ATR_CACT_WAITING_ON_CANCEL_CONFIRM	= 3;
 
 
 local gItemPostingInProgress = false;
+local gPostQ = nil;		-- multi-stack posting queue (1.12 posts one stack per StartAuction)
 local gQuietWho = 0;
 local gSendZoneMsgs = false;
 
@@ -1182,11 +1183,214 @@ function Atr_CreateAuction_OnClick ()
 	
 	Atr_Memorize_Stacking_If();
 
-	-- Vanilla 1.12 StartAuction is 3-arg and posts a single stack from the
-	-- currently-loaded sell slot. The Wrath stackSize/numStacks args don't exist
-	-- here. Posting just one stack per click; the user must re-place and re-click
-	-- for additional stacks. TODO: queue-driven multi-stack reposter.
-	StartAuction (stackStartingPrice, stackBuyoutPrice, duration);
+	ClearCursor();
+	ClickAuctionSellItemButton();
+	ClearCursor();
+
+	gPostQ = {
+		itemName	= gJustPosted_ItemName,
+		itemLink	= gJustPosted_ItemLink,
+		stackSize	= gJustPosted_StackSize,
+		numLeft		= gJustPosted_NumStacks,
+		posted		= 0,
+		startPrice	= stackStartingPrice,
+		buyout		= stackBuyoutPrice,
+		duration	= duration,
+	};
+
+	gPostQ.phase	= "prep";		-- the queue is driven per-frame from Atr_Idle
+	gPostQ.ticks	= 0;
+end
+
+local function Atr_Bag_Count (bag, slot)
+	local _, count, locked = GetContainerItemInfo (bag, slot);
+	return count, locked;
+end
+
+-- Find a bag slot for itemName: prefer one holding exactly `size` (post as-is),
+-- else the first holding more than `size` (to split from). Returns bag, slot, kind.
+local function Atr_FindStackSource (itemName, size)
+
+	local splitBag, splitSlot;
+	local b;
+	for b = 1, table.getn(kBagIDs) do
+		local bagID		= kBagIDs[b];
+		local numslots	= GetContainerNumSlots (bagID);
+		local s;
+		for s = 1, numslots do
+			local link = GetContainerItemLink (bagID, s);
+			if (link and Atr_GetItemInfo (link) == itemName) then
+				local _, count = GetContainerItemInfo (bagID, s);		-- 1st return is the texture
+				if (count == size) then
+					return bagID, s, "exact";
+				elseif (count and count > size and not splitBag) then
+					splitBag, splitSlot = bagID, s;
+				end
+			end
+		end
+	end
+
+	if (splitBag) then
+		return splitBag, splitSlot, "split";
+	end
+end
+
+-----------------------------------------
+
+local function Atr_FindEmptyBagSlot ()
+	local b;
+	for b = 1, table.getn(kBagIDs) do
+		local bagID		= kBagIDs[b];
+		local numslots	= GetContainerNumSlots (bagID);
+		local s;
+		for s = 1, numslots do
+			if (not GetContainerItemLink (bagID, s)) then
+				return bagID, s;
+			end
+		end
+	end
+end
+
+-----------------------------------------
+
+-- Place a settled, exact-size bag slot into the sell slot and post it.
+local function Atr_DoPost (bag, slot)
+
+	local count, locked = Atr_Bag_Count (bag, slot);
+	if (locked or count ~= gPostQ.stackSize) then
+		return false;		-- not settled yet; the tick will retry
+	end
+
+	-- mirror aux: empty the sell slot, then load our prepared stack
+	ClearCursor();
+	ClickAuctionSellItemButton();
+	ClearCursor();
+	PickupContainerItem (bag, slot);
+	ClickAuctionSellItemButton();
+	ClearCursor();
+
+	gItemPostingInProgress	= true;
+	gPostQ.phase			= "waitpost";
+	gPostQ.ticks			= 0;
+
+	StartAuction (gPostQ.startPrice, gPostQ.buyout, gPostQ.duration);
+	return true;
+end
+
+-----------------------------------------
+
+function Atr_PostQueue_Tick ()
+
+	local q = gPostQ;
+	if (not q) then
+		return;
+	end
+
+	if (q.phase == "waitpost") then			-- waiting for ERR_AUCTION_STARTED
+		q.ticks = q.ticks + 1;
+		if (q.ticks > 600) then
+			Atr_FinishPosting();			-- post never confirmed; bail out
+		end
+		return;
+	end
+
+	if (q.phase == "waitprep") then			-- waiting for a split to settle
+		q.ticks = q.ticks + 1;
+		local count, locked = Atr_Bag_Count (q.prepBag, q.prepSlot);
+		if (not locked and count == q.stackSize) then
+			Atr_DoPost (q.prepBag, q.prepSlot);
+		elseif (q.ticks > 120) then
+			Atr_FinishPosting();
+		end
+		return;
+	end
+
+	-- phase == "prep": find or carve an exact-size stack
+	if (q.numLeft <= 0) then
+		Atr_FinishPosting();
+		return;
+	end
+
+	q.ticks = q.ticks + 1;
+	if (q.ticks > 200) then
+		Atr_FinishPosting();		-- stuck (e.g. an item lock never cleared)
+		return;
+	end
+
+	local bag, slot, kind = Atr_FindStackSource (q.itemName, q.stackSize);
+
+	if (not bag) then
+		Atr_FinishPosting();				-- out of postable items
+		return;
+	end
+
+	if (kind == "exact") then
+		Atr_DoPost (bag, slot);				-- retries next tick if still locked
+		return;
+	end
+
+	-- kind == "split": carve an exact-size stack into an empty slot
+	local _, locked = Atr_Bag_Count (bag, slot);
+	if (locked) then
+		return;								-- wait for the source to unlock
+	end
+
+	local xb, xs = Atr_FindEmptyBagSlot();
+	if (not xb) then
+		Atr_FinishPosting();				-- no free bag slot to split into
+		return;
+	end
+
+	ClearCursor();
+	SplitContainerItem (bag, slot, q.stackSize);
+	PickupContainerItem (xb, xs);
+	ClearCursor();
+
+	q.prepBag	= xb;
+	q.prepSlot	= xs;
+	q.phase		= "waitprep";
+	q.ticks		= 0;
+end
+
+-----------------------------------------
+
+-- Called from the CHAT_MSG_SYSTEM (ERR_AUCTION_STARTED) hook: a stack posted.
+function Atr_PostQueue_OnPosted ()
+
+	local q = gPostQ;
+	if (not q or q.phase ~= "waitpost") then
+		return;
+	end
+
+	gItemPostingInProgress	= false;
+	q.posted				= q.posted + 1;
+	q.numLeft				= q.numLeft - 1;
+
+	Atr_AddToScan (q.itemName, q.stackSize, q.buyout, 1);
+	Atr_AddHistoricalPrice (q.itemName, q.buyout / q.stackSize, q.stackSize, q.itemLink);
+
+	if (q.numLeft > 0) then
+		q.phase = "prep";
+		q.ticks = 0;
+	else
+		Atr_FinishPosting();
+	end
+end
+
+-----------------------------------------
+
+function Atr_FinishPosting ()
+
+	if (gPostQ and gPostQ.posted > 0) then
+		Atr_LogMsg (gPostQ.itemLink, gPostQ.stackSize, gPostQ.buyout, gPostQ.posted);
+	end
+
+	gPostQ = nil;
+	gItemPostingInProgress = false;
+
+	if (gCurrentPane and gCurrentPane.activeScan) then
+		gCurrentPane.activeScan.whenScanned = 0;		-- force a rescan
+	end
 end
 
 
@@ -1243,6 +1447,10 @@ end
 
 function Atr_AuctionFrameAuctions_Update()
 
+	if (AuctionFrameAuctions and AuctionFrameAuctions.page == nil) then
+		AuctionFrameAuctions.page = 0;
+	end
+
 	auctionator_orig_AuctionFrameAuctions_Update();
 
 end
@@ -1291,16 +1499,7 @@ function Atr_OnAuctionOwnedUpdate ()
 
 	gActiveAuctions = {};		-- always flush this cache
 
-	if (gJustPosted_ItemName) then
 
-		if (gJustPosted_NumStacks == 1) then
-			Atr_LogMsg (gJustPosted_ItemLink, gJustPosted_StackSize, gJustPosted_BuyoutPrice, 1);
-			Atr_AddHistoricalPrice (gJustPosted_ItemName, gJustPosted_BuyoutPrice / gJustPosted_StackSize, gJustPosted_StackSize, gJustPosted_ItemLink);
-			Atr_AddToScan (gJustPosted_ItemName, gJustPosted_StackSize, gJustPosted_BuyoutPrice, 1);
-		end
-	end
-
-	
 end
 
 -----------------------------------------
@@ -1374,6 +1573,7 @@ function auctionator_ChatFrame_OnEvent(event)
 
 	if (event == "CHAT_MSG_SYSTEM") then
 		if (arg1 == ERR_AUCTION_STARTED) then		-- absorb the Auction Created message
+			Atr_PostQueue_OnPosted();				-- confirms a stack posted; post the next
 			return;
 		end
 		if (arg1 == ERR_AUCTION_REMOVED) then		-- absorb the Auction Created message
@@ -2317,7 +2517,9 @@ function Atr_Idle(self, elapsed)
 	if (gAtr_FullScanState ~= ATR_FS_NULL) then
 		Atr_FullScanFrameIdle();
 	end
-	
+
+	Atr_PostQueue_Tick();		-- drive multi-stack auction posting
+
 	if (verCheckMsgState == 0) then
 		verCheckMsgState = time();
 	end
