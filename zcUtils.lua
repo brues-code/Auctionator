@@ -831,7 +831,7 @@ end
 
 function zc.printmem ()
 
-	local cmem = math.floor(collectgarbage ("count"))
+	local cmem = math.floor(gcinfo ())
 	
 	UpdateAddOnMemoryUsage();
 	local mem = GetAddOnMemoryUsage("Auctionator");

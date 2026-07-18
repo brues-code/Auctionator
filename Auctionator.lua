@@ -454,7 +454,7 @@ local function Atr_SlashCmdFunction(msg)
 			zc.msg_atr (ZT("pricing history cleared"));
 		end
 		
-		collectgarbage  ("collect");
+		collectgarbage  ();
 		
 		zc.msg_atr ("memory usage: "..Atr_GetAuctionatorMemString());
 

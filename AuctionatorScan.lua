@@ -1389,7 +1389,7 @@ function Atr_FullScanFinish()
 
 	gFS_lowprices = {};
 	gFS_qualities = {};
-	collectgarbage ("collect");
+	collectgarbage ();
 end
 
 -----------------------------------------
