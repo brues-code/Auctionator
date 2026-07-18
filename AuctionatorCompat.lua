@@ -87,6 +87,15 @@ if not table.wipe then
 	end
 end
 
+-- UIDropDownMenu_CreateInfo: added in 2.x. 1.12 has no such helper -- you build
+-- the info table by hand and pass it to UIDropDownMenu_AddButton (which reads
+-- .text/.value/.func/.checked/.owner). Return a fresh table each call.
+if not UIDropDownMenu_CreateInfo then
+	function UIDropDownMenu_CreateInfo()
+		return {}
+	end
+end
+
 -- Atr_SelectionHighlight: in 1.12 the Lock/UnlockHighlight pair doesn't
 -- always refresh the highlight texture correctly when toggled programmatically
 -- (previously-clicked rows remain visually "stuck"). Sidestep the engine's
@@ -417,13 +426,15 @@ if not InterfaceOptionsFrameCategories then
 	InterfaceOptionsFrameCategories = CreateFrame("Frame", "InterfaceOptionsFrameCategories", InterfaceOptionsFrame)
 end
 
--- MoneyTypeInfo.AUCTION: Wrath/3.x ships an "AUCTION" entry in MoneyTypeInfo
--- that Auctionator's money frames use via MoneyFrame_SetType. Vanilla only
--- has "PLAYER" and "STATIC". Defined as a STATIC clone so MoneyFrame_Update
--- displays whatever value the addon explicitly writes via MoneyFrame_Update.
+-- MoneyTypeInfo.AUCTION: 1.12.1 already ships this natively (UpdateFunc returns
+-- this.staticMoney, same as STATIC), so this block is a no-op fallback for any
+-- client that lacks it. NOTE: the native UpdateFunc returns this.staticMoney and
+-- MoneyFrame_UpdateMoney does NOT nil-check, so callers must seed frame.staticMoney
+-- (e.g. = 0) before MoneyFrame_SetType("AUCTION"), else MoneyFrame_Update does
+-- floor(nil/..) and errors (see AuctionatorMoneyFrame_OnLoad).
 if MoneyTypeInfo and not MoneyTypeInfo["AUCTION"] then
 	MoneyTypeInfo["AUCTION"] = {
-		UpdateFunc = function() return this.staticMoney; end,
+		UpdateFunc = function() return this.staticMoney or 0; end,
 		collapse = 1,
 		showSmallerCoins = "Backpack",
 	}

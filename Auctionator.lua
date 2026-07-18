@@ -3584,10 +3584,13 @@ end
 
 function AuctionatorMoneyFrame_OnLoad()
 
-	-- 1.12 MoneyFrame_SetType takes a single `type` arg and reads `this` for
-	-- the frame; Wrath added a frame arg. AUCTION mode is defined by
-	-- AuctionatorCompat.lua.
+	-- 1.12 MoneyFrame_SetType takes a single `type` arg and reads `this` for the
+	-- frame; Wrath added a frame arg. 1.12.1 natively has MoneyTypeInfo.AUCTION,
+	-- whose UpdateFunc returns this.staticMoney -- and MoneyFrame_UpdateMoney does
+	-- NOT nil-check it, so SetType here (which calls UpdateMoney immediately) would
+	-- do floor(nil/..) and crash. Seed staticMoney first.
 	this.small = 1;
+	this.staticMoney = 0;
 	MoneyFrame_SetType("AUCTION");
 end
 
