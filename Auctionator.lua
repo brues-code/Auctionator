@@ -623,6 +623,13 @@ function Atr_OnAddonLoaded()
 		Atr_Init();
 	end
 
+	if (zc.StringSame (addonName, "blizzard_craftui")) then
+		if (UIPanelWindows["CraftFrame"]) then
+			UIPanelWindows["CraftFrame"].area		= "left";
+			UIPanelWindows["CraftFrame"].pushable	= 3;
+		end
+	end
+
 	if (zc.StringSame (addonName, "lilsparkysWorkshop")) then
 
 		local LSW_version = GetAddOnMetadata("lilsparkysWorkshop", "Version");
@@ -1445,9 +1452,10 @@ end
 
 function auctionator_CanShowRightUIPanel(frame)
 
-	if (zc.StringSame (frame:GetName(), "TradeSkillFrame")) then
+	local name = frame and frame:GetName();
+	if (name == "TradeSkillFrame" or name == "CraftFrame") then
 		return 1;
-	end;
+	end
 
 	return auctionator_orig_CanShowRightUIPanel(frame);
 
