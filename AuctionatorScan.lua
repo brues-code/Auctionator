@@ -69,6 +69,8 @@ function AtrSearch:Init (searchText, exact, rescanThreshold, callback, opts)
 	self.sortHow			= ATR_SORTBY_PRICE_ASC;
 	self.callback			= callback;
 	self.shoppingMode		= opts and opts.shoppingMode;
+	self.quality			= opts and opts.quality;
+	self.usable				= opts and opts.usable;
 	self.bestPerUnitSeen	= nil;
 	
 	if (exact) then	
@@ -627,7 +629,7 @@ function AtrSearch:Continue()
 
 		queryString = zc.UTF8_Truncate (queryString,63);	-- attempting to reduce number of disconnects
 
-		QueryAuctionItems (queryString, minLevel, maxLevel, nil, itemClass, itemSubclass, self.current_page, nil, nil);
+		QueryAuctionItems (queryString, minLevel, maxLevel, nil, itemClass, itemSubclass, self.current_page, self.usable, self.quality);
 
 		self.query_sent_when	= gAtr_ptime;
 		self.processing_state	= KM_POSTQUERY;

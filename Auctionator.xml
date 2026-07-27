@@ -1338,7 +1338,11 @@
 				<FontString name="Atr_AS_LevRange_Label" inherits="GameFontHighlightLarge" text="-">
 					<Anchors><Anchor point="TOPLEFT" relativeTo="Atr_AS_LevRange_Label" relativePoint="BOTTOMLEFT"><Offset><AbsDimension x="41" y="-6"/></Offset></Anchor></Anchors>
 				</FontString>
-				
+
+				<FontString name="Atr_AS_Rarity_Label" inherits="GameFontNormalSmall" text="Rarity">
+					<Anchors><Anchor point="TOPLEFT"><Offset><AbsDimension x="240" y="-190"/></Offset></Anchor></Anchors>
+				</FontString>
+
 			</Layer>
 		</Layers>
 
@@ -1374,6 +1378,22 @@
 				<Anchors><Anchor point="TOPLEFT" relativeTo="Atr_AS_LevRange_Label" relativePoint="BOTTOMLEFT"><Offset><AbsDimension x="59" y="-4"/></Offset></Anchor></Anchors>
 				<FontString inherits="ChatFontNormal" bytes="64" justifyH="CENTER" />
 			</EditBox>
+
+			<Frame name="Atr_AS_Rarity" inherits="UIDropDownMenuTemplate">
+				<Anchors><Anchor point="TOPLEFT" relativeTo="Atr_AS_Rarity_Label" relativePoint="BOTTOMLEFT"><Offset><AbsDimension x="-20" y="-4"/></Offset></Anchor></Anchors>
+				<Scripts>
+					<OnShow> Atr_AS_Rarity_OnLoad(this); </OnShow>
+				</Scripts>
+			</Frame>
+
+			<CheckButton name="Atr_AS_Usable" inherits="UICheckButtonTemplate">
+				<Anchors><Anchor point="TOPLEFT" relativeTo="Atr_AS_Rarity" relativePoint="BOTTOMLEFT"><Offset><AbsDimension x="20" y="-6"/></Offset></Anchor></Anchors>
+				<Scripts>
+					<OnLoad>
+						getglobal(this:GetName().."Text"):SetText(USABLE_ITEMS);
+					</OnLoad>
+				</Scripts>
+			</CheckButton>
 
 			<Button name="Atr_Adv_Search_ResetBut" inherits="UIPanelButtonTemplate" text="RESET">
 				<Size><AbsDimension x="60" y="18"/></Size>

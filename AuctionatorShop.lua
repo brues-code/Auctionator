@@ -534,6 +534,15 @@ function Atr_Adv_Search_Onclick ()
 		Atr_ASDD_UpdateSubclassMenu();
 		UIDropDownMenu_SetSelectedValue (Atr_ASDD_Subclass, itemSubclass);
 
+		-- SetSelectedValue derives the label by scanning the *shared* DropDownList1,
+		-- whose buttons may belong to another dropdown (e.g. Rarity, whose OnShow ran
+		-- last) -- and class/rarity value spaces overlap (2 = Armor and Uncommon).
+		-- Set the labels explicitly (SetText keeps selectedValue intact).
+		local classList	= Atr_GetAuctionClasses();
+		local subList	= Atr_GetAuctionSubclasses (itemClass);
+		UIDropDownMenu_SetText (classList[itemClass] or "", Atr_ASDD_Class);
+		UIDropDownMenu_SetText ((itemSubclass > 0 and subList[itemSubclass]) or "", Atr_ASDD_Subclass);
+
 		if (minLevel == nil) then minLevel = ""; end
 		if (maxLevel == nil) then maxLevel = ""; end
 		
@@ -624,7 +633,7 @@ function Atr_ASDD_Subclass_Initialize (self)
 
 		local itemSubclasses = Atr_GetAuctionSubclasses(itemClass);
 		local n;
-		
+
 		if (table.getn(itemSubclasses) > 0) then
 			local text;
 			for n, text in pairs(itemSubclasses) do
@@ -633,7 +642,55 @@ function Atr_ASDD_Subclass_Initialize (self)
 			end
 		end
 	end
-	
+
+end
+
+-----------------------------------------
+
+-- Rarity (minimum quality) dropdown -- mirrors the stock AH's BrowseDropDown:
+-- "All" = -1 (the server reads 0xffffffff as "no filter"), then one entry per
+-- quality (Poor..) with value = quality index, which QueryAuctionItems passes as
+-- the 9th (qualityIndex) arg and the server treats as a minimum.
+
+function Atr_AS_Rarity_OnLoad (self)
+
+	UIDropDownMenu_Initialize (Atr_AS_Rarity, Atr_AS_Rarity_Initialize);
+
+	-- keep the prior choice across opens; default to "All" only when unset
+	if (UIDropDownMenu_GetSelectedValue (Atr_AS_Rarity) == nil) then
+		UIDropDownMenu_SetSelectedValue (Atr_AS_Rarity, -1);
+	end
+
+	UIDropDownMenu_SetWidth (90, Atr_AS_Rarity);
+	Atr_AS_Rarity:Show();
+end
+
+-----------------------------------------
+
+function Atr_AS_Rarity_Initialize ()
+
+	local info = UIDropDownMenu_CreateInfo();
+	info.text	= ALL;
+	info.value	= -1;
+	info.func	= Atr_AS_Rarity_OnClick;
+	UIDropDownMenu_AddButton (info);
+
+	local i;
+	for i = 0, table.getn(ITEM_QUALITY_COLORS) - 2 do
+		info = UIDropDownMenu_CreateInfo();
+		info.text	= getglobal ("ITEM_QUALITY"..i.."_DESC");
+		info.value	= i;
+		info.func	= Atr_AS_Rarity_OnClick;
+		UIDropDownMenu_AddButton (info);
+	end
+end
+
+-----------------------------------------
+
+function Atr_AS_Rarity_OnClick (self)
+
+	self = self or this;		-- 1.12 passes the clicked button as `this`, not self
+	UIDropDownMenu_SetSelectedValue (Atr_AS_Rarity, self.value);
 end
 
 
@@ -649,6 +706,9 @@ function Atr_Adv_Search_Reset()
 
 	Atr_AS_Minlevel:SetText ("");
 	Atr_AS_Maxlevel:SetText ("");
+
+	UIDropDownMenu_SetSelectedValue (Atr_AS_Rarity, -1);	-- any rarity
+	Atr_AS_Usable:SetChecked (false);
 end
 
 -----------------------------------------
@@ -662,12 +722,12 @@ function Atr_Adv_Search_Do()
 	local itemSubclassList	= Atr_GetAuctionSubclasses(itemClass);
 
 	
-	local searchText = itemClassList[itemClass];
-	
+	local searchText = itemClassList[itemClass] or "";
+
 	if (itemSublass > 0) then
 		searchText = searchText.."/"..itemSubclassList[itemSublass];
 	end
-	
+
 	local minLevel	= Atr_AS_Minlevel:GetNumber ();
 	local maxLevel	= Atr_AS_Maxlevel:GetNumber ();
 	local text		= Atr_AS_Searchtext:GetText();
@@ -675,14 +735,19 @@ function Atr_Adv_Search_Do()
 	if (maxLevel > 0 and minLevel == 0) then
 		minLevel = 1;
 	end
-	
+
 	if (minLevel > 0)	then	searchText = searchText.."/"..minLevel;		end
 	if (maxLevel > 0)	then	searchText = searchText.."/"..maxLevel;		end
 	if (text ~= "")		then	searchText = searchText.."/"..text;			end
-	
+
+	-- Rarity (min quality) and usable ride alongside the query as opts, not in the
+	-- compound string. -1 rarity = any; usable is 1 or nil.
+	local quality	= UIDropDownMenu_GetSelectedValue (Atr_AS_Rarity);
+	local usable	= Atr_AS_Usable:GetChecked() and 1 or nil;
+
 	Atr_Search_Box:SetText(searchText);
 
-	Atr_Search_Onclick();
+	Atr_Search_Onclick ({ quality = quality, usable = usable });
 
 	Atr_Adv_Search_Dialog:Hide();
 
