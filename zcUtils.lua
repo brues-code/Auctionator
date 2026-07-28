@@ -420,7 +420,7 @@ function zc.ItemIDfromLink (itemLink)
 	end
 	
 	local found, _, itemString = string.find(itemLink, "^|c%x+|H(.+)|h%[.*%]")
-	local _, itemId, _, suffixId, uniqueId = strsplit(":", itemString)
+	local _, itemId, _, suffixId, uniqueId = string.split(":", itemString)
 
 	return itemId, suffixId, uniqueId;
 
@@ -855,7 +855,7 @@ function zc.printstack (options)
 
 	local s = debugstack (2);
 
-	local lines = { strsplit("\n", s) };
+	local lines = { string.split("\n", s) };
 
 	local x = 1;
 

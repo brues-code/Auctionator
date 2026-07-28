@@ -1719,7 +1719,7 @@ end
 -----------------------------------------
 
 function ParseHtag (tag)
-	local when, type = strsplit(":", tag);
+	local when, type = string.split(":", tag);
 
 	if (type == nil) then
 		type = "hx";
@@ -1736,7 +1736,7 @@ function ParseHist (tag, hist)
 
 	local when, type = ParseHtag(tag);
 
-	local price, count	= strsplit(":", hist);
+	local price, count	= string.split(":", hist);
 
 	price = tonumber (price);
 
@@ -2870,7 +2870,7 @@ function Atr_HEntryOnClick(itemName)
 	end
 	
 	if (AUCTIONATOR_PRICING_HISTORY[itemName]) then
-		local itemId, suffixId, uniqueId = strsplit(":", AUCTIONATOR_PRICING_HISTORY[itemName]["is"])
+		local itemId, suffixId, uniqueId = string.split(":", AUCTIONATOR_PRICING_HISTORY[itemName]["is"])
 
 		local itemId	= tonumber(itemId);
 

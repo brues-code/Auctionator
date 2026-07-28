@@ -547,7 +547,7 @@ function Atr_ParseCompoundSearch (searchString)
 		delim = ">";
 	end
 
-	local tbl	= { strsplit (delim, searchString) };
+	local tbl	= { string.split (delim, searchString) };
 	
 	local queryString	= "";
 	local itemClass		= 0;

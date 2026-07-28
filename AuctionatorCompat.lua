@@ -19,19 +19,6 @@
 -- place of the per-file `...` shim.
 AuctionatorPrivate = AuctionatorPrivate or {}
 
--- strsplit(): added by Blizzard in 2.x. Returns up to 8 substrings.
-if not strsplit then
-	function strsplit(sep, str)
-		if str == nil then return end
-		local result = {}
-		local pattern = "([^" .. sep .. "]+)"
-		for word in string.gfind(str, pattern) do
-			table.insert(result, word)
-		end
-		return result[1], result[2], result[3], result[4],
-		       result[5], result[6], result[7], result[8]
-	end
-end
 
 -- bit library polyfill (zcUtils uses bit.band / bit.rshift for UTF-8 decode).
 if not bit then
