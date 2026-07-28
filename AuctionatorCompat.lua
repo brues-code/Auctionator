@@ -147,50 +147,41 @@ end
 -- vanilla globals when the shape needs to differ from what 1.12 provides.
 -- ---------------------------------------------------------------------------
 
--- Atr_GetItemInfo: returns the Wrath 11-tuple shape Auctionator was written
--- against, by augmenting vanilla's 7-tuple with ClassicAPI lookups.
+-- Atr_GetItemInfo: returns the Wrath-shaped tuple Auctionator was written
+-- against. C_Item.GetItemInfo (ClassicAPI) returns the full modern 18-tuple
+-- directly and its first 11 fields line up exactly with what every caller
+-- expects:
 --
---   vanilla 1.12:  name, link, rarity, minLevel, type, subtype, stack
---   Wrath/3.3.5:   name, link, rarity, ilvl, minLevel, type, subtype, stack,
---                  equipLoc, texture, sellPrice
+--   1 name  2 link  3 rarity  4 itemLevel  5 minLevel  6 type  7 subtype
+--   8 stack  9 equipLoc  10 texture  11 sellPrice  (12-18: classID, ...)
 --
--- ilvl is left nil (vanilla has no per-instance scaling); equipLoc/texture
--- come from C_Item.GetItemInfoInstant; sellPrice from
--- C_Item.GetItemSellPriceByID. Callers that only need fields 1-3 can keep
--- using the vanilla `GetItemInfo` directly.
+-- The old shim left itemLevel (slot 4) nil, which made disenchant pricing --
+-- Atr_CalcDisenchantPrice(type, rarity, itemLevel) -> `itemLevel >= n` --
+-- error on equipped gear. C_Item.GetItemInfo fills it in.
 do
-	local C_Item_GetItemInfoInstant = C_Item and C_Item.GetItemInfoInstant
-	local C_Item_GetItemSellPriceByID = C_Item and C_Item.GetItemSellPriceByID
+	local C_Item_GetItemInfo = C_Item and C_Item.GetItemInfo
 
 	function Atr_GetItemInfo(item)
 		if item == nil then return nil end
 
-		-- This client's GetItemInfo resolves by numeric itemID or name, NOT by
-		-- hyperlink -- GetItemInfo(link) returns nil here. (Blizzard's own
-		-- ContainerFrame.lua extracts the id from the link before calling it.)
-		-- If handed a link/itemString, pull the itemID out so the lookup works.
-		-- Lua 5.0 has no string.match; use string.find with a capture.
-		local query = item
-		if type(item) == "string" then
-			local _, _, id = string.find(item, "item:(%d+)")
-			if id then
-				query = tonumber(id)
+		if C_Item_GetItemInfo then
+			-- C_Item.GetItemInfo resolves a numeric itemID, an "item:NNN" string,
+			-- or a full chat link -- but NOT a bare item *name*. The vanilla global
+			-- does accept names, so use it to turn a name into a link first.
+			local query = item
+			if type(item) == "string" and not tonumber(item)
+				and not string.find(item, "item:%d+") then
+				local _, link = GetItemInfo(item)
+				if link then query = link end
 			end
+			return C_Item_GetItemInfo(query)
 		end
 
-		local name, link, rarity, minLevel, itype, isubtype, stack = GetItemInfo(query)
+		-- Fallback for a client without ClassicAPI: vanilla's short tuple, padded
+		-- with a nil itemLevel (slot 4) to keep the modern slot ordering.
+		local name, link, rarity, minLevel, itype, isubtype, stack = GetItemInfo(item)
 		if not name then return nil end
-
-		local equipLoc, texture, sellPrice
-		local key = link or item
-		if C_Item_GetItemInfoInstant then
-			local _, _, _, _equip, _icon = C_Item_GetItemInfoInstant(key)
-			equipLoc, texture = _equip, _icon
-		end
-		if C_Item_GetItemSellPriceByID then
-			sellPrice = C_Item_GetItemSellPriceByID(key)
-		end
-		return name, link, rarity, nil, minLevel, itype, isubtype, stack, equipLoc, texture, sellPrice
+		return name, link, rarity, nil, minLevel, itype, isubtype, stack
 	end
 end
 
