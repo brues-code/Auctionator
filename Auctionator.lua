@@ -1169,7 +1169,7 @@ function Atr_CreateAuction_OnClick ()
 	gJustPosted_ItemLink			= gCurrentPane.activeScan.itemLink;
 	gJustPosted_BuyoutPrice			= MoneyInputFrame_GetCopper(Atr_StackPrice);
 	gJustPosted_StackSize			= Atr_StackSize();
-	gJustPosted_NumInBagsAtStart	= Atr_GetNumItemInBags(gJustPosted_ItemName);
+	gJustPosted_NumInBagsAtStart	= Atr_GetNumItemInBags(gJustPosted_ItemLink);
 	gJustPosted_NumStacks			= Atr_Batch_NumAuctions:GetNumber();
 
 	local duration				= UIDropDownMenu_GetSelectedValue(Atr_Duration);
@@ -1203,7 +1203,7 @@ function Atr_CreateAuction_OnClick ()
 		ClickAuctionSellItemButton();
 		ClearCursor();
 
-		local bagID, slotIndex = Atr_FindBagStackForPost (gJustPosted_ItemName, stackSize * numStacks);
+		local bagID, slotIndex = Atr_FindBagStackForPost (gJustPosted_ItemLink, stackSize * numStacks);
 		if (not bagID) then
 			Atr_Error_Display (ZT("Not enough of this item in a single stack to post that many."));
 			return;
@@ -1221,10 +1221,23 @@ function Atr_CreateAuction_OnClick ()
 	end
 end
 
--- Find a single bag stack of itemName holding at least `needed` items (prefer
--- the largest). C_AuctionHouse.PostItem splits from ONE source stack, so we need
--- one slot with the full amount. Returns bagID, slotIndex, or nil.
-function Atr_FindBagStackForPost (itemName, needed)
+-- Two item links refer to the same sellable item when their base itemID AND
+-- random-suffix match; the per-instance uniqueID (5th field) differs between
+-- copies and is ignored. Match on link identity, never on display name: for
+-- random-suffix gear ("... of the Bear") the sell slot reports the suffix-
+-- decorated name while GetItemInfo(link) resolves only the base itemID, so a
+-- name compare never matches and the item can't be found to post.
+function Atr_SameItem (link1, link2)
+	if (not link1 or not link2) then return false; end
+	local id1, suf1 = zc.ItemIDfromLink (link1);
+	local id2, suf2 = zc.ItemIDfromLink (link2);
+	return (id1 == id2 and suf1 == suf2);
+end
+
+-- Find a single bag stack matching sellLink holding at least `needed` items
+-- (prefer the largest). C_AuctionHouse.PostItem splits from ONE source stack,
+-- so we need one slot with the full amount. Returns bagID, slotIndex, or nil.
+function Atr_FindBagStackForPost (sellLink, needed)
 
 	local bestBag, bestSlot, bestCount;
 	local b;
@@ -1234,7 +1247,7 @@ function Atr_FindBagStackForPost (itemName, needed)
 		local s;
 		for s = 1, numslots do
 			local link = GetContainerItemLink (bagID, s);
-			if (link and Atr_GetItemInfo (link) == itemName) then
+			if (Atr_SameItem (link, sellLink)) then
 				local _, count = GetContainerItemInfo (bagID, s);		-- 1st return is the texture
 				if (count and count >= needed and (not bestCount or count > bestCount)) then
 					bestBag, bestSlot, bestCount = bagID, s, count;
@@ -2470,7 +2483,7 @@ function Atr_OnNewAuctionUpdate()
 		if (gJustPosted_ItemName == nil) then
 			local cacheHit = gSellPane:DoSearch (auctionItemName, true, 20);
 			
-			gSellPane.totalItems	= Atr_GetNumItemInBags (auctionItemName);
+			gSellPane.totalItems	= Atr_GetNumItemInBags (auctionLink);
 			if (auctionLink) then
 				local _, _, _, _, _, _, _, stackSize = Atr_GetItemInfo (auctionLink);
 				gSellPane.fullStackSize = stackSize or 0;
@@ -3456,24 +3469,20 @@ end
 
 -----------------------------------------
 
-function Atr_GetNumItemInBags (theItemName)
+function Atr_GetNumItemInBags (sellLink)
 
 	local numItems = 0;
 	local b, bagID, slotID, numslots;
-	
+
 	for b = 1, table.getn(kBagIDs) do
 		bagID = kBagIDs[b];
-		
+
 		numslots = GetContainerNumSlots (bagID);
 		for slotID = 1,numslots do
 			local itemLink = GetContainerItemLink(bagID, slotID);
-			if (itemLink) then
-				local itemName				= Atr_GetItemInfo(itemLink);		-- GetItemInfo(link) returns nil in 1.12; shim extracts the itemID
-				local texture, itemCount	= GetContainerItemInfo(bagID, slotID);
-
-				if (itemName == theItemName) then
-					numItems = numItems + itemCount;
-				end
+			if (Atr_SameItem (itemLink, sellLink)) then		-- match by link identity (id+suffix), not name -- see Atr_SameItem
+				local texture, itemCount = GetContainerItemInfo(bagID, slotID);
+				numItems = numItems + (itemCount or 0);
 			end
 		end
 	end
