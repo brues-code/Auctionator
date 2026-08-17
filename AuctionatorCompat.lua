@@ -354,55 +354,45 @@ function Atr_OptionsBuild()
 	return f
 end
 
-if not InterfaceOptions_AddCategory then
-	function InterfaceOptions_AddCategory(panel)
-		if not panel then return end
-		-- Skip the top-level "Auctionator" redirect frame — it isn't a real
-		-- options panel, only existed to nest the rest under in 3.x.
-		if panel.name == "Auctionator" and not panel.parent then
-			return
-		end
-		table.insert(Atr_OptCategories, panel)
-		panel:Hide()
-		if Atr_OptWindow then
-			Atr_OptionsAddTab(panel)
-		end
+function AtrInterfaceOptions_AddCategory(panel)
+	if not panel then return end
+	-- Skip the top-level "Auctionator" redirect frame — it isn't a real
+	-- options panel, only existed to nest the rest under in 3.x.
+	if panel.name == "Auctionator" and not panel.parent then
+		return
+	end
+	table.insert(Atr_OptCategories, panel)
+	panel:Hide()
+	if Atr_OptWindow then
+		Atr_OptionsAddTab(panel)
 	end
 end
 
-if not InterfaceOptionsFrame_OpenToCategory then
-	function InterfaceOptionsFrame_OpenToCategory(target)
-		local f = Atr_OptionsBuild()
-		f:Show()
-		local panel
-		if type(target) == "table" then
-			panel = target
-		elseif type(target) == "string" then
-			for i = 1, table.getn(Atr_OptCategories) do
-				if Atr_OptCategories[i]:GetName() == target
-				   or Atr_OptCategories[i].name == target then
-					panel = Atr_OptCategories[i]
-					break
-				end
+function AtrInterfaceOptionsFrame_OpenToCategory(target)
+	local f = Atr_OptionsBuild()
+	f:Show()
+	local panel
+	if type(target) == "table" then
+		panel = target
+	elseif type(target) == "string" then
+		for i = 1, table.getn(Atr_OptCategories) do
+			if Atr_OptCategories[i]:GetName() == target
+				or Atr_OptCategories[i].name == target then
+				panel = Atr_OptCategories[i]
+				break
 			end
 		end
-		Atr_OptionsSelect(panel or Atr_OptCategories[1])
 	end
+	Atr_OptionsSelect(panel or Atr_OptCategories[1])
 end
 
 -- Stub the legacy globals other code may probe (none of the existing call
 -- sites actually rely on real behaviour — Atr_MakeOptionsFrameOpaque is
 -- commented out, and the mask helpers check for nil before showing).
-if not InterfaceOptionsFrame then
-	InterfaceOptionsFrame = CreateFrame("Frame", "InterfaceOptionsFrame", UIParent)
-	InterfaceOptionsFrame:Hide()
-end
-if not InterfaceOptionsFrameAddOns then
-	InterfaceOptionsFrameAddOns = CreateFrame("Frame", "InterfaceOptionsFrameAddOns", InterfaceOptionsFrame)
-end
-if not InterfaceOptionsFrameCategories then
-	InterfaceOptionsFrameCategories = CreateFrame("Frame", "InterfaceOptionsFrameCategories", InterfaceOptionsFrame)
-end
+AtrInterfaceOptionsFrame = CreateFrame("Frame", "AtrInterfaceOptionsFrame", UIParent)
+AtrInterfaceOptionsFrame:Hide()
+AtrInterfaceOptionsFrameAddOns = CreateFrame("Frame", "AtrInterfaceOptionsFrameAddOns", AtrInterfaceOptionsFrame)
+AtrInterfaceOptionsFrameCategories = CreateFrame("Frame", "AtrInterfaceOptionsFrameCategories", AtrInterfaceOptionsFrame)
 
 -- MoneyTypeInfo.AUCTION: 1.12.1 already ships this natively (UpdateFunc returns
 -- this.staticMoney, same as STATIC), so this block is a no-op fallback for any

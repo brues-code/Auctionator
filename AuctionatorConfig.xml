@@ -6,12 +6,12 @@
 		<Scripts>
 			<OnLoad>
 				this.name = "Auctionator"
-				InterfaceOptions_AddCategory(this);
+				AtrInterfaceOptions_AddCategory(this);
 			</OnLoad>
 			<OnShow>
 				local f = getglobal ("Atr_BasicOptionsFrame");
 				if (f) then
-					InterfaceOptionsFrame_OpenToCategory (f)
+					AtrInterfaceOptionsFrame_OpenToCategory (f)
 					this:Hide();
 				end
 			</OnShow>
@@ -496,7 +496,7 @@
 		</Layers>
 
 		<Scripts>
-			<OnHide>HideInterfaceOptionsMask()</OnHide>
+			<OnHide>HideAtrInterfaceOptionsMask()</OnHide>
 		</Scripts>
 
 		<Frames>
