@@ -114,18 +114,20 @@ function Atr_LocalizeFrames ()
 
 	local frame = EnumerateFrames()
 	while frame do
-		local fname		= frame:GetName();
-		local pname		= (frame:GetParent() and frame:GetParent():GetName() or nil);
-		
-		local isAuctionatorFrame = (zc.StringStartsWith (fname, "Atr") or zc.StringStartsWith (fname, "Auctionator")) and zc.StringSame (pname, "UIParent");
-		if (fname == "Atr_Main_Panel") then
-			isAuctionatorFrame = true;
+		if frame.GetName then
+			local fname		= frame:GetName();
+			local pname		= (frame:GetParent() and frame:GetParent():GetName() or nil);
+
+			local isAuctionatorFrame = (zc.StringStartsWith (fname, "Atr") or zc.StringStartsWith (fname, "Auctionator")) and zc.StringSame (pname, "UIParent");
+			if (fname == "Atr_Main_Panel") then
+				isAuctionatorFrame = true;
+			end
+
+			if ( isAuctionatorFrame ) then
+				Atr_LocalizeChildText (frame);
+			end	
 		end
-		
-		if ( isAuctionatorFrame ) then
-			Atr_LocalizeChildText (frame);
-		end
-		
+
 		frame = EnumerateFrames(frame)
 	end
 
