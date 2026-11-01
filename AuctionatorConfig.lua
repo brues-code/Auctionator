@@ -20,7 +20,7 @@ function Atr_LoadOptionsSubPanel (f, name, title, subtitle)
 	getglobal (frameName.."_ATitle"):SetText (title);
 	getglobal (frameName.."_BTitle"):SetText (subtitle);
 	
-	AtrInterfaceOptions_AddCategory (f);
+	InterfaceOptions_AddCategory (f);
 
 end
 
@@ -526,7 +526,7 @@ function Atr_Memorize_Show (isNew)
 
 	Atr_Mem_EB_itemName:SetText ("");
 	
-	ShowAtrInterfaceOptionsMask();
+	ShowInterfaceOptionsMask();
 
 	Atr_MemorizeFrame:Show();
 
@@ -742,33 +742,33 @@ function Atr_MakeOptionsFrameOpaque ()
 					insets={left=5,right=5,top=5,bottom=5}
 					}
 
-	AtrInterfaceOptionsFrame:SetBackdrop ( bd );
-	AtrInterfaceOptionsFrameAddOns:SetBackdrop ( list_bd );
-	AtrInterfaceOptionsFrameCategories:SetBackdrop ( list_bd );
+	InterfaceOptionsFrame:SetBackdrop ( bd );
+	InterfaceOptionsFrameAddOns:SetBackdrop ( list_bd );
+	InterfaceOptionsFrameCategories:SetBackdrop ( list_bd );
 end
 
 -----------------------------------------
 
-local gAtrInterfaceOptionsMask;
+local gInterfaceOptionsMask;
 
 -----------------------------------------
 
-function ShowAtrInterfaceOptionsMask()
+function ShowInterfaceOptionsMask()
 
-	if (gAtrInterfaceOptionsMask == nil) then
-		gAtrInterfaceOptionsMask = CreateFrame ("Frame", "Atr_Mask_StdOptions", getglobal("AtrInterfaceOptionsFrame"), "Atr_Mask_StdOptionsTempl");
-		gAtrInterfaceOptionsMask:SetFrameLevel (129);
+	if (gInterfaceOptionsMask == nil) then
+		gInterfaceOptionsMask = CreateFrame ("Frame", "Atr_Mask_StdOptions", getglobal("InterfaceOptionsFrame"), "Atr_Mask_StdOptionsTempl");
+		gInterfaceOptionsMask:SetFrameLevel (129);
 	end
 	
-	gAtrInterfaceOptionsMask:Show();
+	gInterfaceOptionsMask:Show();
 	
 end
 
 -----------------------------------------
 
-function HideAtrInterfaceOptionsMask()
-	if (gAtrInterfaceOptionsMask) then
-		gAtrInterfaceOptionsMask:Hide();
+function HideInterfaceOptionsMask()
+	if (gInterfaceOptionsMask) then
+		gInterfaceOptionsMask:Hide();
 	end
 end
 

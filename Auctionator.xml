@@ -450,7 +450,7 @@
 				<Anchors><Anchor point="LEFT" relativeTo="Atr_Search_Button" relativePoint="RIGHT"><Offset><AbsDimension x="165" y="0"/></Offset></Anchor></Anchors>
 				<Scripts>
 					<OnClick>
-						AtrInterfaceOptionsFrame_OpenToCategory ("Auctionator");
+						InterfaceOptionsFrame_OpenToCategory ("Auctionator");
 					</OnClick>
 				</Scripts>
 				<NormalFont style="GameFontNormalSmall"/>
