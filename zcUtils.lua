@@ -419,8 +419,14 @@ function zc.ItemIDfromLink (itemLink)
 		return 0,0,0;
 	end
 	
-	local found, _, itemString = string.find(itemLink, "^|c%x+|H(.+)|h%[.*%]")
-	local _, itemId, _, suffixId, uniqueId = string.split(":", itemString)
+	-- accepts a full chat link or a bare "item:id:enchant:suffix:unique" string
+	-- (1.12's GetItemInfo returns the latter as its second value)
+	local _, _, itemString = string.find(itemLink, "item:([%-%d:]+)")
+	if (itemString == nil) then
+		return;
+	end
+
+	local itemId, _, suffixId, uniqueId = string.split(":", itemString)
 
 	return itemId, suffixId, uniqueId;
 
