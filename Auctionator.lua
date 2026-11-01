@@ -415,6 +415,7 @@ local function Atr_SlashCmdFunction(msg)
 	local cmd, param1u, param2u, param3u = zc.words (msg);
 
 	if (cmd == nil or type (cmd) ~= "string") then
+		InterfaceOptionsFrame_OpenToCategory ("Auctionator");
 		return;
 	end
 	
