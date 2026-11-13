@@ -745,6 +745,10 @@ end
 
 function Atr_ShowHide_StartingPrice()
 
+	if (not AuctionatorInited) then		-- sell pane frames don't exist until Blizzard_AuctionUI loads; Atr_Init applies the setting then
+		return;
+	end
+
 	if (AUCTIONATOR_SHOW_ST_PRICE == 1) then
 		Atr_StartingPriceText:Show();
 		Atr_StartingPrice:Show();
