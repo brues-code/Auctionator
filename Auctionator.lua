@@ -387,6 +387,7 @@ function Atr_OnChatMsgAddon ()
 			local outOfDate = CheckVersion (herVerString);
 			if (outOfDate) then
 				zc.AddDeferredCall (3, "Atr_VersionReminder", nil, nil, "VR");
+				Atr_core:Show();	-- may have gone idle; wake it to run the deferred call
 			end
 		end
 	end
@@ -2258,6 +2259,8 @@ end
 
 function Atr_OnAuctionHouseShow()
 
+	Atr_core:Show();
+
 	gOpenAllBags = AUCTIONATOR_OPEN_ALL_BAGS;
 
 	if (AUCTIONATOR_DEFTAB == 1) then		Atr_SelectPane (SELL_TAB);	end
@@ -2408,6 +2411,16 @@ function Atr_Idle(self, elapsed)
 		if (guildname) then
 			Atr_SendAddon_VREQ ("GUILD");
 		end
+	end
+
+	-- Nothing left to tick while the AH is closed: stop OnUpdate until
+	-- Atr_OnAuctionHouseShow (or a new deferred call) shows the frame again.
+	-- Hidden frames still receive events.
+	if (not AuctionFrame or not AuctionFrame:IsShown()) then
+		if (verCheckMsgState == 1 and gAtr_dustCacheIndex == 0 and not zc.HasDeferredCalls()) then
+			self:Hide();
+		end
+		return;
 	end
 
 	if (not Atr_IsTabSelected() or AuctionatorMessageFrame == nil) then

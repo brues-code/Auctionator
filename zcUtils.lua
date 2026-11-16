@@ -354,6 +354,12 @@ end
 
 -----------------------------------------
 
+function zc.HasDeferredCalls ()
+	return table.getn(gDeferredCalls) > 0;
+end
+
+-----------------------------------------
+
 function zc.periodic (elem, name, period, elapsed)
 	
 	local t = elem[name] or 0;
